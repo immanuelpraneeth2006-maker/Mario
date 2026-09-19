@@ -2,6 +2,24 @@
  * Automated test runner for Server API endpoints
  */
 const http = require('http');
+const net = require('net');
+
+const checkPort = (port, host = '127.0.0.1') => {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(800);
+    socket.on('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.on('error', () => resolve(false));
+    socket.on('timeout', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.connect(port, host);
+  });
+};
 
 const request = (path, method = 'GET', body = null, token = null) => {
   return new Promise((resolve, reject) => {
@@ -38,7 +56,16 @@ const request = (path, method = 'GET', body = null, token = null) => {
 
 async function runTests() {
   console.log('--- Running Server API Tests ---');
+  let startedServer = null;
   try {
+    const isRunning = await checkPort(5000);
+    if (!isRunning) {
+      console.log('Port 5000 idle: starting test instance of Mario server...');
+      const { startServer } = require('../server');
+      startedServer = await startServer(5000);
+      await new Promise(r => setTimeout(r, 600));
+    }
+
     // 1. Health check
     console.log('1. Testing /api/health...');
     const health = await request('/api/health');
@@ -98,10 +125,18 @@ async function runTests() {
     console.log('   Leaderboard count:', leaderRes.body.scores.length, 'Top entry:', leaderRes.body.scores[0]?.username);
 
     console.log('--- ALL SERVER API TESTS PASSED SUCCESSFULLY! ---');
-    process.exit(0);
+    if (startedServer) {
+      startedServer.close(() => process.exit(0));
+    } else {
+      process.exit(0);
+    }
   } catch (err) {
     console.error('Test failed:', err);
-    process.exit(1);
+    if (startedServer) {
+      startedServer.close(() => process.exit(1));
+    } else {
+      process.exit(1);
+    }
   }
 }
 

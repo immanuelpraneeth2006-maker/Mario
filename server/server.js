@@ -49,11 +49,21 @@ const io = new Server(server, {
 // Setup real-time socket events
 setupGameSocket(io);
 
-// Start server immediately and connect database in background
-server.listen(PORT, () => {
-  console.log(`[Server] Mario Survival Platformer server running on port ${PORT}`);
-  console.log(`[Server] Health check: http://localhost:${PORT}/api/health`);
-  connectDB();
-});
+// Start server helper
+const startServer = (port = PORT) => {
+  return new Promise((resolve) => {
+    const s = server.listen(port, () => {
+      console.log(`[Server] Mario Survival Platformer server running on port ${port}`);
+      console.log(`[Server] Health check: http://localhost:${port}/api/health`);
+      connectDB();
+      resolve(s);
+    });
+  });
+};
 
-module.exports = { app, server };
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = { app, server, startServer };
+
