@@ -1,0 +1,52 @@
+name: Mario Survival Platformer CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Server Dependencies
+        run: |
+          cd server
+          npm ci
+
+      - name: Run Server API Tests
+        run: |
+          cd server
+          node server.js &
+          sleep 3
+          node test/api.test.js
+        env:
+          PORT: 5000
+          MONGODB_URI: mongodb://localhost:27017/mario_survival_test
+
+      - name: Install Client Dependencies
+        run: |
+          cd client
+          npm ci
+
+      - name: Build Frontend Bundle
+        run: |
+          cd client
+          npm run build
